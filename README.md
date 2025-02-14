@@ -30,8 +30,9 @@ python vis_viser_hsfm.py --hsfm-pkl ./demo_output/people_jumping/hsfm_output_smp
 > Intuition: Humans aid camera and scene structure estimation, while the camera and scene structure, in turn, enhance human reconstruction.
 
 ![HSfM](./assets/teaser.gif)
-  
 
+Inspect the world with the [viser api](https://viser.studio/main/) visualization; `python vis_viser_hsfm.py`.  
+<img src="./assets/hsfm_viser.png" width="400"/>
 
 ## HSfM commands
 
