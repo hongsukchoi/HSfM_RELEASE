@@ -1,0 +1,7 @@
+viser==0.2.19
+tyro
+supervision
+transformers
+smplx==0.1.28
+git+https://github.com/mattloper/chumpy
+numpy==1.24.4
