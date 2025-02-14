@@ -2,7 +2,7 @@
 [[project page]](https://muelea.github.io/hsfm/) [[arxiv]](https://arxiv.org/abs/2412.17806)
 
 <div style="background-color:#222; padding:10px; border-radius:5px; color:white;">
-Lea Muller*, Hongsuk Choi*, Anthony Zhang, Brent Yi, Jitendra Malik, Angjoo Kanazawa.
+Lea Müller*, Hongsuk Choi*, Anthony Zhang, Brent Yi, Jitendra Malik, Angjoo Kanazawa.
 <br>
 <b> Reconstructing People, Places, and Cameras.</b> arXiv, 2024.
 <br>
@@ -14,7 +14,8 @@ Lea Muller*, Hongsuk Choi*, Anthony Zhang, Brent Yi, Jitendra Malik, Angjoo Kana
 ## Run HSfM at one script
 
 ```bash
-# With specific person IDs; ids are predicted by Grounding-SAM-2; default is a person with id 1
+# Run HSfM on our demo data
+# if you want to run on your own data, change the --img-dir and --out-dir, and --person-ids. Checkout "HSfM commands" below for more details.
 ./run_hsfm.sh --img-dir ./demo_data/people_jumping --out-dir ./demo_output --person-ids "1 2 3" --vis
 
 # Visualize the HSfM result
@@ -59,15 +60,18 @@ python vis_viser_dust3r.py --world-env-pkl ./demo_output/people_jumping/dust3r_r
 python get_pose2d_vitpose_for_hsfm.py --img-dir ./demo_data/people_jumping --bbox-dir ./demo_output/people_jumping/sam2_json_data --output-dir ./demo_output --vis # when running this, it's fine to see model weights warning
 
 # Run HMR2.0 to get 3D human mesh
+# Person-ids are from Grounding-SAM-2 output; instance_id in ./demo_data/people_jumping/sam2_json_data/mask_0000*.json
 python get_smpl_hmr2_for_hsfm.py --img-dir ./demo_data/people_jumping --bbox-dir ./demo_output/people_jumping/sam2_json_data --output-dir  ./demo_output/ --person-ids 1 2 3 --vis # choose people you want to use for optimization
 
 # Run WiLor to get 3D hand mesh
+# Person-ids are from Grounding-SAM-2 output; instance_id in ./demo_data/people_jumping/sam2_json_data/mask_0000*.json
 python get_mano_wilor_for_hsfm.py --img-dir ./demo_data/people_jumping --pose2d-dir ./demo_output/people_jumping --output-dir ./demo_output --person-ids 1 2 3 --vis
 
 # Get SMPL-X from SMPL and MANO
 python get_smplx_from_smpl_and_mano_for_hsfm.py --smpl-dir ./demo_output/people_jumping --mano-dir ./demo_output/people_jumping --output-dir ./demo_output/ --vis
 
 # Align world environment and SMPL-X and optimize
+# Person-ids are from Grounding-SAM-2 output; instance_id in ./demo_data/people_jumping/sam2_json_data/mask_0000*.json
 python align_world_env_and_smpl_hsfm_optim.py --world-env-path ./demo_output/people_jumping/dust3r_reconstruction_results_people_jumping.pkl  --person-ids 1 2 3 --bbox-dir ./demo_output/people_jumping/sam2_json_data --pose2d-dir ./demo_output/people_jumping  --smplx-dir ./demo_output/people_jumping --body-model-name smplx --out-dir ./demo_output/people_jumping  --vis
 # if you set vis, you will first see HSfM (initialization) in viser;
 # after checking the result, cancel it by ctrl+c, then the process will continue to HSfM optimization
@@ -101,12 +105,16 @@ pose2d_conf_threshold = 0.5
 ## How to fix ids
 
 - If the ids predicted by Grounding-SAM-2 are not good, you can use other ReID methods to get ReID and bounding boxes of people, or manually fix the ids.
-- But, you should the follow the output format of Grounding-SAM-2. The `mask_name`, `mask_height`, `mask_width`, `promote_type` are unncessary for the pipeline, you should the format of the `labels` key/value pairs and the corresponding `instance_id`.  
-Example:  
+- But, you should follow the output format of Grounding-SAM-2. The `mask_name`, `mask_height`, `mask_width`, `promote_type` are unncessary for the pipeline, but the things in `labels` key/value pairs are necessary. **If you are manually fixing the ids, you should change the `instance_id` in the `labels` key/value pairs.**  
+
+Example `./demo_data/people_jumping/sam2_json_data/mask_0000*.json`:  
 ```json
 {"mask_name": "mask_00001.npy", "mask_height": 1280, "mask_width": 720, "promote_type": "mask", "labels": {"1": {"instance_id": 1, "class_name": "person", "x1": 455, "y1": 261, "x2": 681, "y2": 811, "logit": 0.0}, "2": {"instance_id": 2, "class_name": "person", "x1": 15, "y1": 78, "x2": 236, "y2": 666, "logit": 0.0}, "3": {"instance_id": 3, "class_name": "person", "x1": 309, "y1": 148, "x2": 492, "y2": 651, "logit": 0.0}}}
 ```
 
+<img src="./assets/reid_result.png" width="400"/>  
+
+**TL;DR;** If the ids across the views are incorrect, manually change `instance_id` in the `sam2_json_data/mask_0000*.json` files!
 
 ## Installation
 
@@ -212,4 +220,3 @@ demo_output/
 
 - Download body models following the instructions in the links above.
 - Download checkpoints from here: https://drive.google.com/drive/folders/1Si2tRx9AQrqno1Q7V2LemHdM10B1Hy1d?usp=sharing 
-
