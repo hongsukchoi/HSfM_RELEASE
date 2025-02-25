@@ -163,7 +163,7 @@ def main(text: str="person.", img_dir: str="./tmp_demo_data", output_dir: str=".
 
             # If you are using point prompts, we uniformly sample positive points based on the mask
             if mask_dict.promote_type == "mask":
-                mask_dict.add_new_frame_annotation(mask_list=torch.tensor(masks).to(device), box_list=torch.tensor(input_boxes), label_list=OBJECTS)
+                mask_dict.add_new_frame_annotation(mask_list=torch.tensor(masks).to(device), box_list=torch.tensor(input_boxes), label_list=OBJECTS, scores_list=torch.tensor(scores).to(device))
             else:
                 raise NotImplementedError("SAM 2 video predictor only support mask prompts")
 
