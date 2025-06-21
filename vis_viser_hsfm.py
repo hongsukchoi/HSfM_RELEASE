@@ -8,7 +8,7 @@ import numpy as np
 import smplx
 import torch
 import viser
-import viser.transforms as vtf
+import cv2
 
 from scipy.spatial.transform import Rotation as R
 from scipy.linalg import orthogonal_procrustes
@@ -151,68 +151,75 @@ def show_env_human_in_viser(world_env: dict = None, world_env_pkl: str = '', wor
         nonlocal needs_update
         needs_update = True
 
+    with server.gui.add_folder("Output Analysis"):
+        gui_show_human_pointcloud = server.gui.add_checkbox("Show Human Pointcloud", True)
+        if disable_vis_human_pointcloud:
+            gui_show_human_pointcloud.disabled = True
 
-    gui_show_human_pointcloud = server.gui.add_checkbox("Show Human Pointcloud", True)
-    if disable_vis_human_pointcloud:
-        gui_show_human_pointcloud.disabled = True
+        gui_show_human_mesh = server.gui.add_checkbox("Show Human Mesh", True)
 
-    gui_show_human_mesh = server.gui.add_checkbox("Show Human Mesh", True)
-
-    # frustum gui elements
-    gui_line_width = server.gui.add_slider(
-        "Frustum Line Width", initial_value=2.0, step=0.01, min=0.0, max=20.0
-    )
-
-    @gui_line_width.on_update
-    def _(_) -> None:
-        for cam in camera_frustums:
-            cam.line_width = gui_line_width.value
-
-    gui_frustum_scale = server.gui.add_slider(
-        "Frustum Scale", initial_value=0.3, step=0.001, min=0.01, max=20.0
-    )
-
-    @gui_frustum_scale.on_update
-    def _(_) -> None:
-        for cam in camera_frustums:
-            cam.scale = gui_frustum_scale.value
-
-    gui_frustum_ours_color = server.gui.add_rgb(
-        "Frustum RGB (ours)", initial_value=(255, 127, 14)
-    )
-    @gui_frustum_ours_color.on_update
-    def _(_) -> None:
-        for cam in camera_frustums:
-            cam.color = gui_frustum_ours_color.value
-            
-    gui_confidence_threshold = server.gui.add_number(
+        gui_confidence_threshold = server.gui.add_number(
             "Point Confidence >=", initial_value=3.5, min=0.0, max=20.0
         )
-    gui_confidence_threshold.on_update(set_stale)
+        gui_confidence_threshold.on_update(set_stale)
 
-    gui_point_size = server.gui.add_slider(
-        "Point Size", initial_value=0.01, step=0.0001, min=0.001, max=0.05
-    )
-    gui_point_white = server.gui.add_slider(
-        "Point White", initial_value=0.0, step=0.0001, min=0.0, max=1.0
-    )
-    gui_point_white.on_update(set_stale)
+        # NEW: depth-gradient threshold for point filtering
+        gui_gradient_threshold = server.gui.add_number(
+                "Depth Gradient <", initial_value=0.05, min=0.0, max=0.5, step=0.002
+            )
+        gui_gradient_threshold.on_update(set_stale)
 
-    @gui_point_size.on_update
-    def _(_) -> None:
-        for pc in pointcloud_handles:
-            pc.point_size = gui_point_size.value
+    with server.gui.add_folder("Visualization"):
+        # frustum gui elements
+        gui_line_width = server.gui.add_slider(
+            "Frustum Line Width", initial_value=2.0, step=0.01, min=0.0, max=20.0
+        )
 
-    gui_point_shape = server.gui.add_dropdown(
-        "Point Shape", options=("circle", "square"), initial_value="circle"
-    )
+        @gui_line_width.on_update
+        def _(_) -> None:
+            for cam in camera_frustums:
+                cam.line_width = gui_line_width.value
 
-    @gui_point_shape.on_update
-    def _(_) -> None:
-        for pc in pointcloud_handles:
-            pc.point_ball_norm = (
-                2.0 if gui_point_shape.value == "circle" else np.inf
-            )    
+        gui_frustum_scale = server.gui.add_slider(
+            "Frustum Scale", initial_value=0.3, step=0.001, min=0.01, max=20.0
+        )
+
+        @gui_frustum_scale.on_update
+        def _(_) -> None:
+            for cam in camera_frustums:
+                cam.scale = gui_frustum_scale.value
+
+        gui_frustum_ours_color = server.gui.add_rgb(
+            "Frustum RGB (ours)", initial_value=(255, 127, 14)
+        )
+        @gui_frustum_ours_color.on_update
+        def _(_) -> None:
+            for cam in camera_frustums:
+                cam.color = gui_frustum_ours_color.value
+
+        gui_point_size = server.gui.add_slider(
+            "Point Size", initial_value=0.01, step=0.0001, min=0.001, max=0.05
+        )
+        gui_point_white = server.gui.add_slider(
+            "Point White", initial_value=0.0, step=0.0001, min=0.0, max=1.0
+        )
+        gui_point_white.on_update(set_stale)
+
+        @gui_point_size.on_update
+        def _(_) -> None:
+            for pc in pointcloud_handles:
+                pc.point_size = gui_point_size.value
+
+        gui_point_shape = server.gui.add_dropdown(
+            "Point Shape", options=("circle", "square"), initial_value="circle"
+        )
+
+        @gui_point_shape.on_update
+        def _(_) -> None:
+            for pc in pointcloud_handles:
+                pc.point_ball_norm = (
+                    2.0 if gui_point_shape.value == "circle" else np.inf
+                )    
 
     # get rotation matrix of 180 degrees around x axis
     rot_180 = np.eye(3)
@@ -251,12 +258,24 @@ def show_env_human_in_viser(world_env: dict = None, world_env_pkl: str = '', wor
 
                     points = points @ rot_180
 
-                    # Filter out points with confidence < 3.5.
+                    # Filter out points with confidence < threshold and high depth gradient.
                     mask = world_env[img_name]['conf'].flatten() >= gui_confidence_threshold.value
+
+                    # --- Depth-gradient filtering (optional) ---
+                    if 'depths' in world_env[img_name]:
+                        depths = world_env[img_name]['depths']  # (H, W)
+                        dy, dx = np.gradient(depths)
+                        grad_mag = np.sqrt(dx ** 2 + dy ** 2)
+                        grad_mask = grad_mag.flatten() < gui_gradient_threshold.value
+                        mask = mask & grad_mask
+                    # -----------------------------------------
 
                     # show human pointcloud
                     if not gui_show_human_pointcloud.value and 'sam2_mask' in world_env[img_name].keys():
                         sam2_mask = world_env[img_name]['sam2_mask'].flatten()
+                        # dilate the sam2_mask
+                        kernel = np.ones((5, 5), np.uint8)
+                        sam2_mask = cv2.dilate(sam2_mask, kernel, iterations=1).flatten() > 0
                         mask = mask & (sam2_mask == 0)
 
                     points_filtered = points[mask]
