@@ -1,4 +1,7 @@
 # Human and Structure from Motion (HSfM) 
+
+**CVPR 2025, Highlight.**
+
 [[project page]](https://muelea.github.io/hsfm/) [[arxiv]](https://arxiv.org/abs/2412.17806)
 
 <div style="background-color:#222; padding:10px; border-radius:5px; color:white;">
@@ -219,4 +222,15 @@ demo_output/
 ```
 
 - Download body models following the instructions in the links above.
-- Download checkpoints from here: https://drive.google.com/drive/folders/1Si2tRx9AQrqno1Q7V2LemHdM10B1Hy1d?usp=sharing 
+- Download checkpoints from here: https://drive.google.com/drive/folders/1Si2tRx9AQrqno1Q7V2LemHdM10B1Hy1d?usp=sharing
+
+### [BibTex]
+```
+@inproceedings{muller2025reconstructing,
+  title={Reconstructing people, places, and cameras},
+  author={M{\"u}ller, Lea and Choi, Hongsuk and Zhang, Anthony and Yi, Brent and Malik, Jitendra and Kanazawa, Angjoo},
+  booktitle={Proceedings of the Computer Vision and Pattern Recognition Conference},
+  pages={21948--21958},
+  year={2025}
+}
+```
